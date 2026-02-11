@@ -260,6 +260,8 @@ class FundamentalAnalyzer:
 
         return sum(scores) / len(scores) if scores else 50.0
 
+    def _calc_dividend_score(self, info: dict, metrics: dict, signals: list) -> float:
+        """配当スコア (0〜100)"""
         # 配当スコア
         div_yield = info.get("dividendYield")
         if div_yield is not None:
