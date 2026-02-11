@@ -12,8 +12,9 @@ Render の **Cron Job** 機能を使用します（有料プラン推奨）。Po
 1. **GitHubリポジトリを作成**し、このコードをプッシュします。
 2. **Render ダッシュボード** (https://dashboard.render.com/) にアクセスします。
 3. "New +" から **Blueprint** を選択し、リポジトリを連携します。
-4. 自動的に `render.yaml` が読み込まれ、Cron Job (と必要ならDatabase) の設定が表示されます。
-5. **Environment Variables** (環境変数) を設定します：
+   - **Root Directory**: 空欄（デフォルト）でOKです。
+4. 自動的に `render.yaml` が読み込まれ、設定画面が表示されます。
+5. **Environment Variables** (環境変数) の入力欄が自動表示されるので、値を入力してください：
    - `GEMINI_API_KEY`: Gemini APIキー
    - `NEWSAPI_KEY`: NewsAPIキー
    - `NEWSDATA_KEY`: NewsData.ioキー
@@ -23,7 +24,7 @@ Render の **Cron Job** 機能を使用します（有料プラン推奨）。Po
    - `SMTP_USER`: 送信元Gmailアドレス
    - `SMTP_PASSWORD`: アプリパスワード
    - `SMTP_RECIPIENT`: 受信者メールアドレス
-6. **Apply** をクリックしてデプロイします。毎日日本時間18:00に実行されます。
+6. **Apply** をクリックしてデプロイします。順次ビルドが開始されます。
 
 > **注意**: メモリ不足でエラーになる場合は、Planを `Starter` 以上にアップグレードしてください。
 

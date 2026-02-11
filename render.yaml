@@ -14,16 +14,26 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      # 以下の環境変数はRenderのダッシュボードで設定してください
-      # - GEMINI_API_KEY
-      # - NEWSAPI_KEY
-      # - NEWSDATA_KEY
-      # - MARKETAUX_KEY
-      # - SMTP_HOST
-      # - SMTP_USER
-      # - SMTP_PASSWORD
-      # - SMTP_RECIPIENT
-      # - DATABASE_URL
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: NEWSDATA_KEY
+        sync: false
+      - key: MARKETAUX_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_RECIPIENT
+        sync: false
+      - key: DATABASE_URL
+        sync: false
 
 # データベース (オプション: 永続化が必要な場合)
 # PostgreSQLを使用する場合、以下のコメントを外してください
