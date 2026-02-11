@@ -9,11 +9,11 @@ services:
     plan: starter
     region: singapore # 日本に近いリージョン
     schedule: "0 9 * * *" # UTC 9:00 = JST 18:00
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
     startCommand: "python scripts/run_daily.py"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.12.0
       - key: GEMINI_API_KEY
         sync: false
       - key: NEWSAPI_KEY
