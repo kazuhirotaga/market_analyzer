@@ -63,3 +63,34 @@ Windowsタスクスケジューラを使用する場合：
 Set-ExecutionPolicy RemoteSigned -Scope Process
 .\scripts\register_task.ps1
 ```
+
+---
+
+## 🗑️ プロジェクトの削除 (Render)
+
+Render 上のリソースを削除したい場合の手順です。
+
+1. **Render ダッシュボード** (https://dashboard.render.com/) にアクセスします。
+2. 左メニューの **Blueprints** または **Services** から、対象のプロジェクトを選択します。
+3. **Settings** タブをクリックします。
+4. ページ最下部までスクロールし、**Delete Service** (または **Delete Blueprint**) ボタンをクリックします。
+5. 確認画面でプロジェクト名を入力して削除を実行します。
+
+> **注意**: Blueprintで作成した場合、Blueprint自体を削除すると関連するすべてのサービス（Cron Job, DB等）が一括で削除されます。
+
+---
+
+## ⚡ オプション C: Google Colab (メモリ不足回避)
+
+Renderの無料枠でメモリ不足(OOM)になる場合、Google Colabを使用することをお勧めします。12GB以上のメモリが利用可能で、Google Driveにデータを永続化できます。
+
+### 手順
+1. **[Google Colab](https://colab.research.google.com/)** を開きます。
+2. 「ノートブックを開く」→「GitHub」タブを選択します。
+3. リポジトリURLを入力 (`https://github.com/ikaruga1123/market_analyzer`) し、表示される `notebooks/market_analyzer_colab.ipynb` を開きます。
+4. ノートブックの指示に従って実行します：
+   - Google Driveのマウント
+   - 環境変数 (Secrets) の設定
+   - 分析実行
+
+この方法なら、Renderのようなメモリ制限を気にせず実行可能です。
