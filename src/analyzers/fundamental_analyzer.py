@@ -94,8 +94,11 @@ class FundamentalAnalyzer:
         """バリュエーションスコア (0〜100)"""
         scores = []
 
-        # PER
-        per = info.get("trailingPE")
+        # PER (Forecast PER preferred)
+        per = info.get("forwardPE")
+        if not per or per <= 0:
+            per = info.get("trailingPE")
+            
         if per and per > 0:
             metrics["per"] = round(per, 2)
             sector = info.get("sector", "")
