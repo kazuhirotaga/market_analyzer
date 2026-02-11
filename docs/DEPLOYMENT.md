@@ -93,4 +93,10 @@ Renderの無料枠でメモリ不足(OOM)になる場合、Google Colabを使用
    - 環境変数 (Secrets) の設定
    - 分析実行
 
+### 🔒 プライベートリポジトリの場合
+リポジトリがPrivateの場合は、以下を追加で設定してください：
+1. GitHubで [Personal Access Token (Classic)](https://github.com/settings/tokens) を作成します（`repo` スコープを選択）。
+2. Google Colabのサイドバー「🔑 (Secrets)」を開きます。
+3. `GITHUB_TOKEN` という名前でトークンを追加し、「ノートブックからのアクセスを許可」を有効にします。
+
 この方法なら、Renderのようなメモリ制限を気にせず実行可能です。
