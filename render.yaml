@@ -1,0 +1,34 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Cron Job: 毎日決まった時間にスクリプトを実行
+  # メモリ: Starterプラン以上推奨 (MLモデル読み込みのため)
+  # ----------------------------------------------------------------------------
+  - type: cron
+    name: market-analyzer-daily
+    env: python
+    plan: starter
+    region: singapore # 日本に近いリージョン
+    schedule: "0 9 * * *" # UTC 9:00 = JST 18:00
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python scripts/run_daily.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      # 以下の環境変数はRenderのダッシュボードで設定してください
+      # - GEMINI_API_KEY
+      # - NEWSAPI_KEY
+      # - NEWSDATA_KEY
+      # - MARKETAUX_KEY
+      # - SMTP_HOST
+      # - SMTP_USER
+      # - SMTP_PASSWORD
+      # - SMTP_RECIPIENT
+      # - DATABASE_URL
+
+# データベース (オプション: 永続化が必要な場合)
+# PostgreSQLを使用する場合、以下のコメントを外してください
+# databases:
+#   - name: market-analyzer-db
+#     databaseName: market_analyzer
+#     user: market_user
+#     plan: starter

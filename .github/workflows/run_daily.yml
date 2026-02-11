@@ -1,0 +1,42 @@
+name: Market Analyzer Daily Run
+
+on:
+  schedule:
+    # 毎日 JST 18:00 (UTC 09:00) に実行
+    - cron: '0 9 * * *'
+  workflow_dispatch: # 手動実行用
+
+jobs:
+  analyze_and_notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Market Analyzer
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        NEWSDATA_KEY: ${{ secrets.NEWSDATA_KEY }}
+        MARKETAUX_KEY: ${{ secrets.MARKETAUX_KEY }}
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        SMTP_RECIPIENT: ${{ secrets.SMTP_RECIPIENT }}
+        # データベース接続 (外部のPostgreSQLを使用する場合)
+        # DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        python scripts/run_daily.py --verbose
