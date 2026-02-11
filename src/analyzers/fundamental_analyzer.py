@@ -103,19 +103,26 @@ class FundamentalAnalyzer:
 
             # PERが平均より低いほど割安 → 高スコア
             ratio = per / avg_per
+            
+            # ソフトバンクG (9984.T) は投資会社のためPER評価は不適切
+            is_investment_co = info.get("symbol") == "9984.T" 
+
             if ratio < 0.5:
                 per_score = 95
-                signals.append(f"🟢 PER={per:.1f} は同業種平均 {avg_per:.0f} 比で大幅割安")
+                if not is_investment_co:
+                    signals.append(f"🟢 PER={per:.1f} は同業種平均 {avg_per:.0f} 比で大幅割安")
             elif ratio < 0.8:
                 per_score = 80
-                signals.append(f"🟢 PER={per:.1f} は割安圏")
+                if not is_investment_co:
+                    signals.append(f"🟢 PER={per:.1f} は割安圏")
             elif ratio < 1.2:
                 per_score = 55
             elif ratio < 1.5:
                 per_score = 35
             else:
                 per_score = 15
-                signals.append(f"🔴 PER={per:.1f} は割高圏")
+                if not is_investment_co:
+                    signals.append(f"🔴 PER={per:.1f} は割高圏")
             scores.append(per_score)
 
         # PBR
@@ -157,7 +164,10 @@ class FundamentalAnalyzer:
         if roe is not None:
             roe_pct = roe * 100
             metrics["roe"] = round(roe_pct, 2)
-            if roe_pct > 20:
+            if roe_pct > 30:
+                roe_score = 95
+                signals.append(f"🟢 ROE={roe_pct:.1f}% (極めて高い - 特殊要因の可能性あり)")
+            elif roe_pct > 20:
                 roe_score = 95
                 signals.append(f"🟢 ROE={roe_pct:.1f}% (高収益)")
             elif roe_pct > 15:
@@ -250,21 +260,27 @@ class FundamentalAnalyzer:
 
         return sum(scores) / len(scores) if scores else 50.0
 
-    def _calc_dividend_score(self, info: dict, metrics: dict, signals: list) -> float:
-        """配当スコア (0〜100)"""
+        # 配当スコア
         div_yield = info.get("dividendYield")
-        if div_yield is not None and div_yield > 0:
-            div_pct = div_yield * 100
-            metrics["dividend_yield"] = round(div_pct, 2)
-
-            if div_pct > 4.0:
-                signals.append(f"🟢 配当利回り={div_pct:.2f}% (高配当)")
+        if div_yield is not None:
+            # yfinanceのdividendYieldは既にパーセント単位（例: 3.45 = 3.45%）の場合と
+            # 小数単位（例: 0.0345 = 3.45%）の場合が混在する可能性があるが
+            # 最近の挙動ではパーセント単位で返ってくることが多い (3.45など)
+            # しかし、念のため 0.05 (5%) 以下なら小数として扱い、それ以上なら%として扱うヒューリスティックを入れる
+            # ※ AAPL 0.38% -> 0.38 と返ってくるので、単にそのまま使うのが安全
+            #   (0.38を小数とみなして100倍すると38%になってしまうため)
+            
+            # 修正: yfinanceがパーセント値を返していると仮定し、そのまま使用する
+            metrics["dividend_yield"] = round(div_yield, 2)
+            
+            if div_yield > 4.0:
+                signals.append(f"🟢 配当利回り={div_yield:.2f}% (高配当)")
                 return 90.0
-            elif div_pct > 3.0:
+            elif div_yield > 3.0:
                 return 75.0
-            elif div_pct > 2.0:
+            elif div_yield > 2.0:
                 return 60.0
-            elif div_pct > 1.0:
+            elif div_yield > 1.0:
                 return 45.0
             else:
                 return 30.0

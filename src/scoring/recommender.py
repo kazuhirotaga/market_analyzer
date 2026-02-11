@@ -155,7 +155,7 @@ class Recommender:
         risk_warnings = self._generate_risk_warnings(macro_indicators, all_results)
 
         # マーケットサマリー構築
-        market_sentiment = self._determine_market_sentiment(macro_score)
+        market_sentiment = self._determine_market_sentiment(macro_score, risk_warnings)
         market_summary = {
             "indices": market_indices,
             "macro_indicators": macro_indicators.to_dict(),
@@ -327,18 +327,33 @@ class Recommender:
 
         return warnings
 
-    def _determine_market_sentiment(self, macro_score: float) -> str:
+    def _determine_market_sentiment(self, macro_score: float, risk_warnings: list[str] = None) -> str:
         """マクロスコアから市場センチメントを判定"""
+        base_sentiment = "中立"
         if macro_score >= 70:
-            return "強気"
+            base_sentiment = "強気"
         elif macro_score >= 55:
-            return "やや強気"
+            base_sentiment = "やや強気"
         elif macro_score >= 45:
-            return "中立"
+            base_sentiment = "中立"
         elif macro_score >= 30:
-            return "やや弱気"
+            base_sentiment = "やや弱気"
         else:
-            return "弱気"
+            base_sentiment = "弱気"
+            
+        # 重大なリスク警告がある場合はセンチメントを下方修正
+        if risk_warnings:
+            # 円高急進やVIX急騰などのキーワードが含まれる場合
+            critical_keywords = ["急激な", "急騰", "急上昇", "VIX", "ボラティリティ"]
+            is_critical = any(k in w for w in risk_warnings for k in critical_keywords)
+            
+            if is_critical:
+                if "強気" in base_sentiment:
+                    return f"{base_sentiment} (要警戒)"
+                elif base_sentiment == "中立":
+                    return "中立 (弱気バイアス)"
+                
+        return base_sentiment
 
     def _save_report(self, report: dict):
         """レポートをDBに保存"""
