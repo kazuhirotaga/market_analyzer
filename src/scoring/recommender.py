@@ -173,12 +173,46 @@ class Recommender:
             # LLMのセクター分析をリスク警告に追加
             llm_risks = llm_market_result.get("risk_factors", [])
             for risk in llm_risks:
-                risk_warnings.append(f"🤖 {risk}")
+                risk_warnings.append(f"[AI] {risk}")
+
+        # 重要ニュース（今日のニュースからインパクト大のものを抽出）
+        top_news = []
+        if self.llm_analyzer:
+            session = get_session()
+            try:
+                # 今日の日付
+                today_start = datetime.combine(date.today(), datetime.min.time())
+                
+                # インパクトが 'high' または 'medium' の記事を取得
+                important_articles = (
+                    session.query(NewsArticle)
+                    .filter(NewsArticle.published_at >= today_start)
+                    .filter(NewsArticle.model_used.like("%gemini%"))
+                    .filter(NewsArticle.impact_llm.in_(["high", "medium"]))
+                    .order_by(NewsArticle.sentiment_score.desc()) # スコア高い順（ポジティブ）、あるいは絶対値？一旦ポジティブ優先
+                    .limit(5)
+                    .all()
+                )
+                
+                for a in important_articles:
+                    top_news.append({
+                        "title": a.title,
+                        "summary": a.summary_llm,
+                        "impact": a.impact_llm,
+                        "sentiment": a.sentiment_score,
+                        "reasoning": a.reasoning_llm,
+                        "sectors": a.affected_sectors_llm,
+                    })
+            except Exception as e:
+                logger.warning(f"⚠️ ニュース抽出エラー: {e}")
+            finally:
+                session.close()
 
         report = {
             "report_date": date.today().isoformat(),
             "report_type": "daily",
             "market_summary": market_summary,
+            "top_news": top_news,  # 追加
             "recommendations": recommendations,
             "all_results": all_results,
             "sector_analysis": sector_analysis,
@@ -272,24 +306,24 @@ class Recommender:
 
         # VIXが高い場合
         if macro.vix and macro.vix > 25:
-            warnings.append(f"⚠️ VIX={macro.vix:.1f} — ボラティリティが高く、市場全体にリスクあり")
+            warnings.append(f"[!] VIX={macro.vix:.1f} - ボラティリティが高く、市場全体にリスクあり")
 
         # 円高急進
         if macro.usdjpy_change and macro.usdjpy_change < -1.0:
-            warnings.append(f"⚠️ 急激な円高 ({macro.usdjpy_change:+.2f}%) — 輸出企業に注意")
+            warnings.append(f"[!] 急激な円高 ({macro.usdjpy_change:+.2f}%) - 輸出企業に注意")
 
         # 米国長期金利上昇
         if macro.us10y_change and macro.us10y_change > 3.0:
-            warnings.append(f"⚠️ 米国10年債利回り急上昇 ({macro.us10y_change:+.2f}%) — グロース株に注意")
+            warnings.append(f"[!] 米国10年債利回り急上昇 ({macro.us10y_change:+.2f}%) - グロース株に注意")
 
         # 原油急騰
         if macro.oil_change and macro.oil_change > 5.0:
-            warnings.append(f"⚠️ 原油価格急騰 ({macro.oil_change:+.2f}%) — コスト増の影響に注意")
+            warnings.append(f"[!] 原油価格急騰 ({macro.oil_change:+.2f}%) - コスト増の影響に注意")
 
         # 全体的に低スコアの場合
         avg_score = sum(r["total_score"] for r in results) / len(results) if results else 50
         if avg_score < 40:
-            warnings.append("⚠️ 全体的にスコアが低い — 市場環境の悪化に注意")
+            warnings.append("[!] 全体的にスコアが低い - 市場環境の悪化に注意")
 
         return warnings
 

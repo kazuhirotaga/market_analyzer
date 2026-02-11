@@ -75,6 +75,12 @@ class NewsArticle(Base):
     sentiment_score = Column(Float)   # -1.0 〜 1.0
     confidence = Column(Float)        # 0.0 〜 1.0
     model_used = Column(String(50))   # finbert, gemini, etc.
+    
+    # LLM Analysis Details
+    summary_llm = Column(Text)        # LLMによる要約
+    impact_llm = Column(String(50))   # high, medium, low
+    reasoning_llm = Column(Text)      # 判断理由
+    affected_sectors_llm = Column(String(200)) # 影響セクター(カンマ区切り)
 
     # Relationships
     ticker_links = relationship("NewsTickerLink", back_populates="article", cascade="all, delete-orphan")

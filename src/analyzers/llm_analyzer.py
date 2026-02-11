@@ -143,13 +143,22 @@ class LLMAnalyzer:
                 if not result:
                     continue
 
-                # DB更新: センチメントスコアを保存
+                # DB更新: センチメントスコアと詳細分析を保存
                 if article_id:
                     row = session.query(NewsArticle).filter_by(id=article_id).first()
                     if row:
                         row.sentiment_score = result["sentiment_score"]
                         row.confidence = 0.85  # LLM分析は信頼度高め
                         row.model_used = f"gemini:{GEMINI_MODEL}"
+
+                        # 詳細分析結果の保存
+                        row.summary_llm = result.get("summary")
+                        row.impact_llm = result.get("impact_magnitude")
+                        row.reasoning_llm = result.get("reasoning")
+                        
+                        sectors = result.get("affected_sectors", [])
+                        if sectors:
+                            row.affected_sectors_llm = ",".join(sectors)
 
                         # 銘柄紐付け
                         for ticker in result.get("affected_tickers", []):

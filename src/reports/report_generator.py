@@ -25,17 +25,48 @@ class ReportGenerator:
         console.print()
         self._print_header(report)
         self._print_market_summary(report.get("market_summary", {}))
+        
+        self._print_top_news(report.get("top_news", []))
+
         self._print_recommendations(report.get("recommendations", []))
-        self._print_sector_analysis(report.get("sector_analysis", {}))
-        self._print_risk_warnings(report.get("risk_warnings", []))
-        self._print_all_scores(report.get("all_results", []))
-        console.print()
+        
+        llm_data = report.get("market_summary", {}).get("llm_analysis")
+
+
+    def _print_top_news(self, news_list: list[dict]):
+        """重要ニュース詳細出力"""
+        if not news_list:
+            return
+
+        console.print("\n[bold cyan][News] 今日の重要ニュース (AI分析)[/bold cyan]")
+        
+        for i, news in enumerate(news_list, 1):
+            title = news.get("title", "")
+            summary = news.get("summary") or "要約なし"
+            impact = news.get("impact", "N/A")
+            reason = news.get("reasoning", "")
+            sentiment = news.get("sentiment", 0)
+            
+            # インパクトの色
+            impact_color = "red" if impact == "high" else "yellow" if impact == "medium" else "white"
+            
+            console.print(Panel(
+                f"[bold]{title}[/bold]\n"
+                f"{summary}\n\n"
+                f"[dim]影響度: [{impact_color}]{impact.upper()}[/{impact_color}] | "
+                f"スコア: {self._color_score(sentiment)}[/dim]\n"
+                f"[italic]理由: {reason}[/italic]",
+                border_style="blue",
+                title=f"News #{i}"
+            ))
+
+
 
     def _print_header(self, report: dict):
         """ヘッダー出力"""
         report_date = report.get("report_date", "N/A")
         console.print(Panel(
-            f"[bold white]📊 Market Analyzer — デイリーレポート[/bold white]\n"
+            f"[bold white][STATS] Market Analyzer - デイリーレポート[/bold white]\n"
             f"[dim]{report_date}[/dim]",
             style="bold blue",
             box=box.DOUBLE,
@@ -44,7 +75,7 @@ class ReportGenerator:
 
     def _print_market_summary(self, summary: dict):
         """マーケットサマリー出力"""
-        console.print("\n[bold cyan]🌐 マーケットサマリー[/bold cyan]")
+        console.print("\n[bold cyan][GLOBAL] マーケットサマリー[/bold cyan]")
 
         # 指数テーブル
         indices = summary.get("indices", {})
@@ -75,13 +106,37 @@ class ReportGenerator:
             f"| 市場センチメント: [bold]{sentiment}[/bold]"
         )
 
+        # LLM分析結果
+        if "llm_analysis" in summary:
+            self._print_llm_report(summary["llm_analysis"])
+
+    def _print_llm_report(self, llm_data: dict):
+        """LLM分析レポート出力"""
+        console.print("\n[bold cyan][AI] AI市場分析 (Gemini)[/bold cyan]")
+        
+        # サマリー
+        summary_text = llm_data.get("summary", "")
+        if summary_text:
+            console.print(Panel(summary_text, title="市場概況", border_style="cyan"))
+
+        # キーテーマ
+        themes = llm_data.get("key_themes", [])
+        if themes:
+            console.print(f"  [bold]注目テーマ:[/bold] {', '.join(themes)}")
+
+        # リスク要因
+        risks = llm_data.get("risk_factors", [])
+        if risks:
+            console.print(f"  [bold red]リスク要因:[/bold red] {', '.join(risks)}")
+
+
     def _print_recommendations(self, recommendations: list[dict]):
         """おすすめ銘柄テーブル出力"""
         if not recommendations:
             console.print("\n[yellow]おすすめ銘柄データがありません[/yellow]")
             return
 
-        console.print("\n[bold cyan]⭐ おすすめ銘柄 Top {0}[/bold cyan]".format(len(recommendations)))
+        console.print("\n[bold cyan]* おすすめ銘柄 Top {0}[/bold cyan]".format(len(recommendations)))
 
         table = Table(box=box.ROUNDED, show_header=True, header_style="bold")
         table.add_column("#", justify="center", width=3)
@@ -96,7 +151,7 @@ class ReportGenerator:
 
         for i, rec in enumerate(recommendations, 1):
             scores = rec.get("scores", {})
-            icon = rec.get("rating_icon", "⚪")
+            icon = rec.get("rating_icon", "(-)")
             total = rec.get("total_score", 0)
             rating = rec.get("rating", "N/A")
 
@@ -118,7 +173,7 @@ class ReportGenerator:
         console.print(table)
 
         # 上位銘柄のシグナル詳細
-        console.print("\n[bold cyan]📝 上位銘柄のシグナル[/bold cyan]")
+        console.print("\n[bold cyan][Memo] 上位銘柄のシグナル[/bold cyan]")
         for i, rec in enumerate(recommendations[:5], 1):
             ticker = rec.get("ticker", "")
             name = rec.get("name", "")
@@ -133,17 +188,37 @@ class ReportGenerator:
         if not sector_data:
             return
 
-        console.print("\n[bold cyan]🏭 セクター分析[/bold cyan]")
+        console.print("\n[bold cyan][Sector] セクター分析[/bold cyan]")
 
         bullish = sector_data.get("bullish_sectors", [])
         bearish = sector_data.get("bearish_sectors", [])
 
-        if bullish:
-            console.print(f"  [green]強気セクター: {', '.join(bullish)}[/green]")
-        if bearish:
-            console.print(f"  [red]弱気セクター: {', '.join(bearish)}[/red]")
+    def _print_sector_analysis(self, sector_data: dict, llm_data: dict = None):
+        """セクター分析出力"""
+        if not sector_data:
+            return
 
-        # セクタースコア
+        console.print("\n[bold cyan][Sector] セクター分析[/bold cyan]")
+
+        # 定量分析（スコアベース）
+        bullish = sector_data.get("bullish_sectors", [])
+        bearish = sector_data.get("bearish_sectors", [])
+
+        if bullish:
+            console.print(f"  [green]強気セクター (スコア): {', '.join(bullish)}[/green]")
+        if bearish:
+            console.print(f"  [red]弱気セクター (スコア): {', '.join(bearish)}[/red]")
+
+        # 定性分析（LLMベース）
+        if llm_data:
+            llm_bullish = llm_data.get("bullish_sectors", [])
+            llm_bearish = llm_data.get("bearish_sectors", [])
+            if llm_bullish:
+                console.print(f"  [green]強気セクター (AI予測): {', '.join(llm_bullish)}[/green]")
+            if llm_bearish:
+                console.print(f"  [red]弱気セクター (AI予測): {', '.join(llm_bearish)}[/red]")
+
+        # セクタースコア表
         scores = sector_data.get("sector_scores", {})
         if scores:
             table = Table(box=box.SIMPLE, show_header=True)
@@ -160,7 +235,7 @@ class ReportGenerator:
         if not warnings:
             return
 
-        console.print("\n[bold red]⚠️ リスク警告[/bold red]")
+        console.print("\n[bold red][!] リスク警告[/bold red]")
         for w in warnings:
             console.print(f"  {w}")
 
@@ -169,7 +244,7 @@ class ReportGenerator:
         if not results:
             return
 
-        console.print("\n[bold cyan]📊 全銘柄スコア一覧[/bold cyan]")
+        console.print("\n[bold cyan][Data] 全銘柄スコア一覧[/bold cyan]")
 
         table = Table(box=box.SIMPLE, show_header=True)
         table.add_column("銘柄", width=10)
@@ -185,7 +260,7 @@ class ReportGenerator:
         for r in results:
             scores = r.get("scores", {})
             total = r.get("total_score", 0)
-            icon = r.get("rating_icon", "⚪")
+            icon = r.get("rating_icon", "(-)")
             rating = r.get("rating", "N/A")
             total_color = "green" if total >= 60 else "yellow" if total >= 40 else "red"
 
