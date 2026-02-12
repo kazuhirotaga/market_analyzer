@@ -193,8 +193,18 @@ class Config:
             if os.getenv("USE_SP500_FULL", "false").lower() == "true":
                 try:
                     import pandas as pd
-                    # WikipediaからS&P 500構成銘柄を取得
-                    tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+                    import requests
+                    import io
+
+                    url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    }
+                    response = requests.get(url, headers=headers)
+                    response.raise_for_status()
+
+                    # HTMLコンテンツをIOストリームとして渡す
+                    tables = pd.read_html(io.StringIO(response.text))
                     df = tables[0]
                     tickers = df['Symbol'].tolist()
                     # '.' を '-' に置換 (BRK.B -> BRK-B) YFinance形式に合わせる
