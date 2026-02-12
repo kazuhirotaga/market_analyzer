@@ -189,6 +189,19 @@ class Config:
     def target_tickers(self) -> list[str]:
         """対象銘柄プール - 現在の市場設定に基づいて返す"""
         if self.market == "US":
+            # 環境変数で S&P 500 全銘柄取得モードが有効な場合
+            if os.getenv("USE_SP500_FULL", "false").lower() == "true":
+                try:
+                    import pandas as pd
+                    # WikipediaからS&P 500構成銘柄を取得
+                    tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+                    df = tables[0]
+                    tickers = df['Symbol'].tolist()
+                    # '.' を '-' に置換 (BRK.B -> BRK-B) YFinance形式に合わせる
+                    return [t.replace('.', '-') for t in tickers]
+                except Exception as e:
+                    print(f"⚠️ S&P 500 全銘柄取得失敗: {e} - デフォルトリストを使用します")
+                    return US_TARGET_TICKERS
             return US_TARGET_TICKERS
         return JP_TARGET_TICKERS
 
