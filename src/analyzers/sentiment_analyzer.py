@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 # FinBERTモデル (遅延ロード)
 _model = None
 _tokenizer = None
+_current_market_model = None  # 現在ロードされているモデルの市場 ("JP" or "US")
 
 
 def _load_model():
     """FinBERTモデルを遅延ロード"""
-    global _model, _tokenizer
+    global _model, _tokenizer, _current_market_model
     if _model is not None:
         return
 
@@ -29,7 +30,13 @@ def _load_model():
         from transformers import AutoTokenizer, AutoModelForSequenceClassification
         import torch
 
-        model_name = "izumi-lab/bert-small-japanese-fin"
+        if config.market == "US":
+            model_name = "ProsusAI/finbert"
+            _current_market_model = "US"
+        else:
+            model_name = "izumi-lab/bert-small-japanese-fin"
+            _current_market_model = "JP"
+            
         logger.info(f"🔄 センチメントモデルをロード中: {model_name}")
 
         _tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -46,21 +53,43 @@ class SentimentAnalyzer:
     """センチメント分析クラス"""
 
     # キーワードベースのフォールバック辞書
-    POSITIVE_KEYWORDS = [
+    # キーワードベースのフォールバック辞書
+    POSITIVE_KEYWORDS_JP = [
         "上昇", "増収", "増益", "好調", "堅調", "上方修正", "最高益",
         "増配", "回復", "成長", "拡大", "改善", "買い", "強気",
         "プラス", "急騰", "高値", "大幅増", "黒字", "好決算",
     ]
 
-    NEGATIVE_KEYWORDS = [
+    NEGATIVE_KEYWORDS_JP = [
         "下落", "減収", "減益", "不振", "軟調", "下方修正", "赤字",
         "減配", "悪化", "縮小", "低迷", "売り", "弱気", "リスク",
         "マイナス", "急落", "安値", "大幅減", "損失", "悪決算",
         "破綻", "倒産", "不正", "撤退", "リストラ",
     ]
 
+    POSITIVE_KEYWORDS_US = [
+        "up", "rise", "gain", "growth", "jump", "surge", "climb", "rally",
+        "profit", "positive", "bull", "bullish", "record", "beat", "strong",
+        "upgrade", "buy", "dividend", "revenue up", "outperform"
+    ]
+
+    NEGATIVE_KEYWORDS_US = [
+        "down", "fall", "drop", "decline", "slide", "crash", "plunge", "loss",
+        "negative", "bear", "bearish", "miss", "weak", "downgrade", "sell",
+        "cut", "revenue down", "underperform", "risk", "debt", "bankrupt"
+    ]
+
     def __init__(self):
         self.use_model = False
+        
+        # 市場に応じてキーワードを設定
+        if config.market == "US":
+            self.POSITIVE_KEYWORDS = self.POSITIVE_KEYWORDS_US
+            self.NEGATIVE_KEYWORDS = self.NEGATIVE_KEYWORDS_US
+        else:
+            self.POSITIVE_KEYWORDS = self.POSITIVE_KEYWORDS_JP
+            self.NEGATIVE_KEYWORDS = self.NEGATIVE_KEYWORDS_JP
+
         try:
             _load_model()
             self.use_model = _model is not None
@@ -260,6 +289,21 @@ class SentimentAnalyzer:
 
     def _analyze_with_model(self, text: str) -> dict:
         """FinBERTモデルでセンチメント分析"""
+        # モデルの動的リロードチェック
+        global _model, _tokenizer, _current_market_model
+
+        target_model = "US" if config.market == "US" else "JP"
+        
+        # 現在ロードされているモデルがターゲット市場と異なる場合はリロード
+        if _current_market_model != target_model:
+            logger.info(f"🔄 市場変更検知 ({_current_market_model} -> {target_model}): モデルをリロードします")
+            _model = None
+            _tokenizer = None
+            _load_model()
+
+        if _model is None:
+            return self._analyze_with_keywords(text)
+
         import torch
 
         try:
@@ -274,7 +318,6 @@ class SentimentAnalyzer:
                 probs = torch.softmax(outputs.logits, dim=-1)[0]
 
             # モデルのラベル順序に応じてマッピング
-            # izumi-lab モデル: [positive, negative, neutral] or similar
             labels = _model.config.id2label
             scores_dict = {}
             for idx, label_name in labels.items():
@@ -307,8 +350,16 @@ class SentimentAnalyzer:
 
     def _analyze_with_keywords(self, text: str) -> dict:
         """キーワードベースのセンチメント分析（フォールバック）"""
-        pos_count = sum(1 for kw in self.POSITIVE_KEYWORDS if kw in text)
-        neg_count = sum(1 for kw in self.NEGATIVE_KEYWORDS if kw in text)
+        # 市場に応じて適切なキーワードリストを選択
+        if config.market == "US":
+            keywords_pos = self.POSITIVE_KEYWORDS_US
+            keywords_neg = self.NEGATIVE_KEYWORDS_US
+        else:
+            keywords_pos = self.POSITIVE_KEYWORDS_JP
+            keywords_neg = self.NEGATIVE_KEYWORDS_JP
+
+        pos_count = sum(1 for kw in keywords_pos if kw in text)
+        neg_count = sum(1 for kw in keywords_neg if kw in text)
         total = pos_count + neg_count
 
         if total == 0:

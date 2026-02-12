@@ -21,7 +21,39 @@ logger = logging.getLogger(__name__)
 # モデル設定
 GEMINI_MODEL = "gemini-2.0-flash"
 
-ANALYSIS_PROMPT = """あなたは日本株式市場の専門アナリストです。
+# --- Dynamic Prompts ---
+
+def get_analysis_prompt(title: str, content: str) -> str:
+    """市場に応じた分析プロンプトを生成"""
+    if config.market == "US":
+        return f"""You are a professional analyst for the US stock market (S&P 500, NASDAQ, etc.).
+Analyze the following news article and provide the impact on the stock market in JSON format.
+
+【Article Title】
+{title}
+
+【Article Content】
+{content}
+
+【Response Format】
+You must respond in JSON format ONLY. No explanation text.
+{{
+    "summary": "Summary of the article (within 100 characters, in Japanese)",
+    "affected_sectors": ["List of affected sectors (in Japanese)"],
+    "affected_tickers": ["List of potentially affected US ticker symbols (e.g., AAPL)"],
+    "sentiment_score": 0.0,
+    "impact_magnitude": "high/medium/low",
+    "impact_timeframe": "short/medium/long",
+    "reasoning": "Reasoning for the judgment (within 200 characters, in Japanese)"
+}}
+
+Notes:
+- sentiment_score: -1.0 (Very Negative) to 1.0 (Very Positive)
+- affected_tickers: US stock tickers only (without .T suffix)
+- impact_timeframe: short=within 1 week, medium=within 1 month, long=longer
+"""
+    else:
+        return f"""あなたは日本株式市場の専門アナリストです。
 以下のニュース記事を分析し、株式投資への影響をJSON形式で回答してください。
 
 【記事タイトル】
@@ -47,11 +79,35 @@ ANALYSIS_PROMPT = """あなたは日本株式市場の専門アナリストで�
 - impact_timeframe: short=1週間以内, medium=1ヶ月以内, long=それ以上
 """
 
-BATCH_PROMPT = """あなたは日本株式市場の専門アナリストです。
+def get_batch_prompt(headlines_text: str) -> str:
+    """市場に応じたバッチ分析プロンプトを生成"""
+    if config.market == "US":
+        return f"""You are a professional analyst for the US stock market.
+Analyze the following list of news headlines and provide a comprehensive overview of the market impact in JSON format.
+
+【News Headlines】
+{headlines_text}
+
+【Response Format】
+You must respond in JSON format ONLY.
+{{
+    "market_outlook": "Bullish/Slightly Bullish/Neutral/Slightly Bearish/Bearish",
+    "key_themes": ["Current key themes (Japanese, max 5)"],
+    "bullish_sectors": ["Sectors expected to perform well (Japanese)"],
+    "bearish_sectors": ["Sectors expected to underperform (Japanese)"],
+    "risk_factors": ["Risk factors to watch (Japanese, max 3)"],
+    "overall_sentiment": 0.0,
+    "summary": "Summary of market outlook (within 200 characters, in Japanese)"
+}}
+
+Note: overall_sentiment should be between -1.0 and 1.0.
+"""
+    else:
+        return f"""あなたは日本株式市場の専門アナリストです。
 以下の複数のニュース見出しを分析し、日本株式市場全体への総合的な影響をJSON形式で回答してください。
 
 【ニュース見出し一覧】
-{headlines}
+{headlines_text}
 
 【回答形式】必ず以下のJSON形式のみで回答してください。
 {{
@@ -91,7 +147,7 @@ class LLMAnalyzer:
 
     def analyze_article(self, title: str, content: str = "") -> Optional[dict]:
         """単一ニュース記事を分析
-
+        
         Returns:
             {
                 "summary": str,
@@ -106,7 +162,7 @@ class LLMAnalyzer:
         if not title:
             return None
 
-        prompt = ANALYSIS_PROMPT.format(
+        prompt = get_analysis_prompt(
             title=title,
             content=content[:1000] if content else "（本文なし）",
         )
@@ -123,10 +179,10 @@ class LLMAnalyzer:
 
     def analyze_articles_batch(self, articles: list[dict]) -> list[dict]:
         """複数記事を個別に分析してDBに保存
-
+        
         Args:
             articles: [{"id": int, "title": str, "content": str}, ...]
-
+        
         Returns:
             分析結果のリスト
         """
@@ -162,6 +218,8 @@ class LLMAnalyzer:
 
                         # 銘柄紐付け
                         for ticker in result.get("affected_tickers", []):
+                            # US銘柄の場合は.Tが付かないことを考慮
+                            # 必要ならここで銘柄コードの検証や正規化を行う
                             existing_link = (
                                 session.query(NewsTickerLink)
                                 .filter_by(article_id=article_id, ticker=ticker)
@@ -192,7 +250,7 @@ class LLMAnalyzer:
 
     def analyze_market_sentiment(self, headlines: list[str]) -> Optional[dict]:
         """複数ニュース見出しから市場全体のセンチメントを分析
-
+        
         Returns:
             {
                 "market_outlook": str,
@@ -208,7 +266,7 @@ class LLMAnalyzer:
             return None
 
         headlines_text = "\n".join(f"- {h}" for h in headlines[:30])
-        prompt = BATCH_PROMPT.format(headlines=headlines_text)
+        prompt = get_batch_prompt(headlines_text)
 
         try:
             response = self.model.generate_content(prompt)
